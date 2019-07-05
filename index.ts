@@ -11,7 +11,7 @@ export const KEY = 'stripe'
 // Put everything that should extend the base app here so it can be later registered as VS module
 const moduleConfig: VueStorefrontModuleConfig = {
   key: KEY,
-  store: { modules: [{ key: KEY, module }] },
+  store: { modules: [{ key: KEY, module: {}}] },
   beforeRegistration
 }
 
