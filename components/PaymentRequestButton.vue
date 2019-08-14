@@ -46,7 +46,7 @@ export default {
   },
   computed: {
     totals () {
-      return this.$store.getters['cart/totals']
+      return this.$store.getters['cart/getTotals']
     },
     shippingMethods () {
       return this.$store.getters['shipping/shippingMethods']
