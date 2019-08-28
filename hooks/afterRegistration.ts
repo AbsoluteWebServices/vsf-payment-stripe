@@ -1,5 +1,5 @@
 export function afterRegistration({ Vue, config, store, isServer }) {
-  const VSF_PAYMENT_CODE = 'stripe'
+  const VSF_PAYMENT_CODE = config.stripe.backend_method_code || 'stripe'
 
   // Update the methods
   let paymentMethodConfig = {
@@ -9,7 +9,7 @@ export function afterRegistration({ Vue, config, store, isServer }) {
     'costInclTax': 0,
     'default': false,
     'offline': false,
-    'is_server_method': false
+    'is_server_method': config.stripe.backend_method_code ? true : false
   }
   store.dispatch('payment/addMethod', paymentMethodConfig)
 
