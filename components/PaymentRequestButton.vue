@@ -70,7 +70,7 @@ export default {
 
       return {
         label: i18n.t('Total'),
-        amount
+        amount: amount * 100
       }
     },
     getShippingOptions () {
