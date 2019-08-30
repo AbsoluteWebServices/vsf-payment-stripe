@@ -1,10 +1,10 @@
-export function afterRegistration({ Vue, config, store, isServer }) {
-  const VSF_PAYMENT_CODE = config.stripe.backend_method_code || 'stripe'
+import { METHOD_CODE } from '../index'
 
+export function afterRegistration({ Vue, config, store, isServer }) {
   // Update the methods
   let paymentMethodConfig = {
     'title': 'Stripe',
-    'code': VSF_PAYMENT_CODE,
+    'code': METHOD_CODE,
     'cost': 0,
     'costInclTax': 0,
     'default': false,
