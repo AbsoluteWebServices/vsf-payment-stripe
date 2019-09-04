@@ -114,7 +114,7 @@ export default {
           errorElement.textContent = result.error.message
         } else {
           self.placeOrderWithPayload(
-            this.formatTokenPayload(result.token)
+            this.formatTokenPayload(result)
           )
         }
         self.$bus.$emit('notification-progress-stop')
@@ -133,7 +133,9 @@ export default {
 
       switch (platform) {
         case 'magento2':
-          return token.paymentMethod.id + ':' + token.paymentMethod.card.brand + ':' + token.paymentMethod.card.last4
+          return {
+            "cc_stripejs_token": token.paymentMethod.id + ':' + token.paymentMethod.card.brand + ':' + token.paymentMethod.card.last4
+          }
           break;
 
         default:
