@@ -16,8 +16,8 @@
           </div>
 
           <!-- Used to display Element errors. -->
-          <div id="vsf-stripe-card-errors" role="alert">
-            &nbsp;
+          <div v-if="errorMessage" id="vsf-stripe-card-errors" role="alert">
+            {{ errorMessage }}
           </div>
         </div>
       </form>
@@ -29,6 +29,7 @@
 <script>
 import config from 'config'
 import i18n from '@vue-storefront/i18n'
+import { METHOD_CODE } from '../index'
 
 export default {
   name: 'PaymentStripe',
@@ -38,28 +39,38 @@ export default {
         instance: null,
         elements: null,
         card: null
-      }
+      },
+      correctPaymentMethod: true,
+      errorMessage: null,
+      token: null
     }
   },
-  mounted () {
-    this.configureStripe()
-
-    // Ready to place order, handle anything we need to, generating, validating stripe requests & tokens ect.
+  beforeMount () {
     this.$bus.$on('checkout-before-placeOrder', this.onBeforePlaceOrder)
-
-    // Ready to place order, handle anything we need to, generating, validating stripe requests & tokens ect.
-    this.$bus.$on('checkout-payment-method-changed', (paymentMethodCode) => {
-      if (paymentMethodCode !== 'stripe') {
-        // unregister the extension placeorder handler
-        this.$bus.$off('checkout-before-placeOrder', this.onBeforePlaceOrder)
-      }
-    })
+    this.$bus.$on('checkout-payment-method-changed', this.checkPaymentMethod)
+  },
+  beforeDestroy () {
+    this.$bus.$off('checkout-before-placeOrder', this.onBeforePlaceOrder)
+    this.$bus.$off('checkout-payment-method-changed', this.checkPaymentMethod)
+  },
+  mounted () {
+    if (window.Stripe) {
+      this.configureStripe()
+    } else {
+      this.$bus.$on('stripe-payments-ready', this.configureStripe)
+    }
   },
   methods: {
+    checkPaymentMethod (paymentMethodCode) {
+      this.correctPaymentMethod = paymentMethodCode === METHOD_CODE
+    },
     onBeforePlaceOrder () {
-      this.processStripeForm()
+      if (this.correctPaymentMethod && this.token) {
+        this.placeOrderWithPayload(this.token)
+      }
     },
     configureStripe () {
+      this.$bus.$off('stripe-payments-ready', this.configureStripe)
       if (!config.hasOwnProperty('stripe') || typeof config.stripe.apiKey === 'undefined') {
         return false
       }
@@ -90,8 +101,7 @@ export default {
       this.stripe.card.addEventListener('change', this.onStripeCardChange)
     },
     onStripeCardChange (event) {
-      let displayError = document.getElementById('vsf-stripe-card-errors')
-      displayError.textContent = event.error ? event.error.message : ''
+      this.errorMessage = event.error ? event.error.message : ''
     },
     beforeDestroy () {
       this.unbindEventListeners()
@@ -99,26 +109,22 @@ export default {
     unbindEventListeners () {
       this.stripe.card.removeEventListener('change', this.onStripeCardChange)
     },
-    processStripeForm () {
-      let self = this
-
-      // Display loader
-      this.$bus.$emit('notification-progress-start', [i18n.t('Placing Order'), '...'].join(''))
+    async processStripeForm () {
+      this.$bus.$emit('notification-progress-start', [i18n.t('Processing Card Info'), '...'].join(''))
 
       // Create payment method with Stripe
-      this.stripe.instance.createPaymentMethod('card', this.stripe.card).then((result) => {
-        if (result.error) {
-          // Inform the user if there was an error.
-          let errorElement = document.getElementById('vsf-stripe-card-errors')
+      const result = await this.stripe.instance.createPaymentMethod('card', this.stripe.card)
 
-          errorElement.textContent = result.error.message
-        } else {
-          self.placeOrderWithPayload(
-            this.formatTokenPayload(result.token)
-          )
-        }
-        self.$bus.$emit('notification-progress-stop')
-      })
+      this.$bus.$emit('notification-progress-stop')
+
+      if (result.error) {
+        this.errorMessage = result.error.message
+        this.$bus.$emit('stripe-payment-error', result.error)
+        return false
+      } else {
+        this.token = this.formatTokenPayload(result)
+        return true
+      }
     },
     placeOrderWithPayload (payload) {
       this.$bus.$emit('checkout-do-placeOrder', payload)
