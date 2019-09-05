@@ -1,5 +1,5 @@
 <template>
-  <div :id="id">
+  <div :id="id" :style="{width}">
     <!-- A Stripe Element will be inserted here. -->
   </div>
 </template>
@@ -31,7 +31,12 @@ export default {
       type: Number,
       required: false,
       default: 40
-    }
+    },
+    width: {
+      type: String,
+      required: false,
+      default: '120px'
+    },
   },
   data () {
     return {
@@ -84,7 +89,7 @@ export default {
         shippingOptions.push({
           id: method.method_code,
           label: method.method_title,
-          amount: method.price_incl_tax
+          amount: method.price_incl_tax * 100
         })
       })
 
@@ -133,7 +138,6 @@ export default {
 
       // Check the availability of the Payment Request API first.
       const result = await this.stripe.paymentRequest.canMakePayment()
-      console.log(result)
       if (result) {
         this.stripe.button.mount(`#${this.id}`)
       } else {
