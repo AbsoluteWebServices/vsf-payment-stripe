@@ -20,6 +20,9 @@ export function afterRegistration({ Vue, config, store, isServer }) {
     let docScript = document.createElement('script')
     docScript.type = 'text/javascript'
     docScript.src = apiUrl
+    docScript.onload = () => {
+      Vue.prototype.$bus.$emit('stripe-payments-ready')
+    }
     docHead.appendChild(docScript)
   }
 }

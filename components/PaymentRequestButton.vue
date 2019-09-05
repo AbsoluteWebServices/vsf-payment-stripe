@@ -56,7 +56,11 @@ export default {
     }
   },
   mounted () {
-    this.configureStripe()
+    if (window.Stripe) {
+      this.configureStripe()
+    } else {
+      this.$bus.$on('stripe-payments-ready', this.configureStripe)
+    }
   },
   methods: {
     getTotals () {
@@ -87,6 +91,7 @@ export default {
       return shippingOptions
     },
     configureStripe () {
+      this.$bus.$off('stripe-payments-ready', this.configureStripe)
       if (!config.hasOwnProperty('stripe') || typeof config.stripe.apiKey === 'undefined') {
         return false
       }
