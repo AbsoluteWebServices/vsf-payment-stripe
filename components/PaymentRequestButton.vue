@@ -7,6 +7,7 @@
 <script>
 import config from 'config'
 import i18n from '@vue-storefront/i18n'
+import { METHOD_CODE } from '../index'
 
 export default {
   name: 'StripePaymentRequestButton',
@@ -37,6 +38,11 @@ export default {
       required: false,
       default: '120px'
     },
+    requestShipping: {
+      type: Boolean,
+      required: false,
+      default: false
+    }
   },
   data () {
     return {
@@ -46,7 +52,9 @@ export default {
         elements: null,
         button: null,
         paymentRequest: null
-      }
+      },
+      correctPaymentMethod: true,
+      token: null
     }
   },
   computed: {
@@ -58,6 +66,12 @@ export default {
     },
     availableShippingMethods () {
       return this.shippingMethods.filter(method => method.available)
+    },
+    checkoutPaymentDetails () {
+      return this.$store.state.checkout.paymentDetails
+    },
+    checkoutShippingDetails () {
+      return this.$store.state.checkout.shippingDetails
     }
   },
   mounted () {
@@ -68,7 +82,7 @@ export default {
     }
   },
   methods: {
-    getTotals () {
+    getTotals (pending = false) {
       let amount = 0.00
 
       this.totals.forEach(total => {
@@ -79,8 +93,20 @@ export default {
 
       return {
         label: i18n.t('Total'),
-        amount: amount * 100
+        amount: amount * 100,
+        pending
       }
+    },
+    getDisplayItems (pending = false) {
+      return this.totals.filter(total => {
+        return total.code !== 'grand_total' && total.title !== ''
+      }).map(total => {
+        return {
+          label: total.title,
+          amount: total.value * 100,
+          pending
+        }
+      })
     },
     getShippingOptions () {
       const shippingOptions = []
@@ -104,15 +130,22 @@ export default {
       // Create a new Stripe client.
       this.stripe.instance = window.Stripe(config.stripe.apiKey)
 
-      this.stripe.paymentRequest = this.stripe.instance.paymentRequest({
+      let options = {
         country: 'US',
         currency: 'usd',
-        total: this.getTotals(),
+        total: this.getTotals(true),
+        displayItems: this.getDisplayItems(true),
         requestPayerName: true,
         requestPayerEmail: true,
-        requestShipping: true,
-        shippingOptions: this.getShippingOptions()
-      })
+        requestPayerPhone: true,
+        requestShipping: this.requestShipping
+      }
+
+      if (this.requestShipping) {
+        options.shippingOptions = this.getShippingOptions()
+      }
+
+      this.stripe.paymentRequest = this.stripe.instance.paymentRequest(options)
 
       // Create an instance of Elements.
       this.stripe.elements = this.stripe.instance.elements()
@@ -145,8 +178,11 @@ export default {
       }
     },
     bindEventListeners () {
-      this.stripe.paymentRequest.on('shippingaddresschange', this.onShippingAddressChange)
+      if (this.requestShipping) {
+        this.stripe.paymentRequest.on('shippingaddresschange', this.onShippingAddressChange)
+      }
       this.stripe.paymentRequest.on('token', this.onTokenReceive)
+      this.stripe.button.on('click', this.updateDetails)
     },
     async onShippingAddressChange (event) {
       if (event.shippingAddress.country !== 'US') {
@@ -167,17 +203,55 @@ export default {
       }
     },
     onTokenReceive (event) {
-      this.placeOrderWithPayload({token: event.token.id})
+      if (this.requestShipping) {
+        this.updateShipppingDetails(event.shippingAddress, event.shippingOption)
+      }
+      this.$bus.$emit('stripePR-token-receive', event.token)
+      event.complete('success')
     },
     beforeDestroy () {
       this.unbindEventListeners()
     },
     unbindEventListeners () {
-      this.stripe.paymentRequest.off('shippingaddresschange', this.onShippingAddressChange)
+      if (this.requestShipping) {
+        this.stripe.paymentRequest.off('shippingaddresschange', this.onShippingAddressChange)
+      }
       this.stripe.paymentRequest.off('token', this.onTokenReceive)
+      this.stripe.button.off('click', this.updateDetails)
     },
-    placeOrderWithPayload (payload) {
-      this.$bus.$emit('checkout-do-placeOrder', payload)
+    updateDetails () {
+      let options = {
+        total: this.getTotals(),
+        displayItems: this.getDisplayItems(),
+      }
+
+      if (this.requestShipping) {
+        options.shippingOptions = this.getShippingOptions()
+      }
+
+      this.stripe.paymentRequest.update(options)
+    },
+    updateShipppingDetails (shippingAddress, shippingOption) {
+      this.$bus.$emit('stripePR-shipping-select', {shippingAddress, shippingOption})
+      let name = shippingAddress.recipient.split(' ', 2)
+      let address = {
+        firstName: name[0],
+        lastName: name.length > 1 ? name[1] : '',
+        country: shippingAddress.country,
+        state: shippingAddress.region,
+        city: shippingAddress.city,
+        streetAddress: shippingAddress.addressLine[0],
+        apartmentNumber: shippingAddress.addressLine.length > 1 ? shippingAddress.addressLine[1] : '',
+        zipCode: shippingAddress.postalCode,
+        phoneNumber: shippingAddress.phone
+      }
+
+      const shipping = {
+        ...address,
+        shippingMethod: shippingOption.id,
+        shippingCarrier: shippingOption.id
+      }
+      this.$store.dispatch('checkout/saveShippingDetails', shipping)
     }
   }
 }

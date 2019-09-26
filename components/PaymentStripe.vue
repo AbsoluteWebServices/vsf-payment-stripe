@@ -9,8 +9,13 @@
     <div class="bg-cl-secondary px20 py20">
       <form action="" id="payment-form">
         <div class="form-row">
+          <div v-if="paymentRequestResult" class="flex items-center">
+            <svg class="payment-icon mr10"><use :xlink:href="paySystemIcon" /></svg>
+            <span class="mr10">{{ paymentRequestResult.card.brand }}</span>
+            <span>**** {{ paymentRequestResult.card.last4 }}</span>
+          </div>
 
-          <div id="vsf-stripe-card-element">
+          <div v-show="!paymentRequestResult" id="vsf-stripe-card-element">
             &nbsp;
             <!-- A Stripe Element will be inserted here. -->
           </div>
@@ -42,16 +47,44 @@ export default {
       },
       correctPaymentMethod: true,
       errorMessage: null,
-      token: null
+      token: null,
+      paymentRequestResult: null
+    }
+  },
+  computed: {
+    paySystemIcon () {
+      if (!this.paymentRequestResult) {
+        return ''
+      }
+
+      switch (this.paymentRequestResult.card.brand.toLowerCase()) {
+        case 'visa':
+          return '#pay_system_visa'
+
+        case 'mastercard':
+          return '#pay_system_master_card'
+
+        case 'amex':
+          return '#pay_system_american_express'
+
+        case 'discover':
+          return '#pay_system_discover'
+      
+        default:
+          return ''
+      }
+      
     }
   },
   beforeMount () {
     this.$bus.$on('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$on('checkout-payment-method-changed', this.checkPaymentMethod)
+    this.$bus.$on('stripePR-token-receive', this.onPaymentRequestToken)
   },
   beforeDestroy () {
     this.$bus.$off('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$off('checkout-payment-method-changed', this.checkPaymentMethod)
+    this.$bus.$off('stripePR-token-receive', this.onPaymentRequestToken)
   },
   mounted () {
     if (window.Stripe) {
@@ -102,6 +135,7 @@ export default {
     },
     onStripeCardChange (event) {
       this.errorMessage = event.error ? event.error.message : ''
+      this.paymentRequestResult = null
     },
     beforeDestroy () {
       this.unbindEventListeners()
@@ -110,6 +144,10 @@ export default {
       this.stripe.card.removeEventListener('change', this.onStripeCardChange)
     },
     async processStripeForm () {
+      if (this.paymentRequestResult && this.token) {
+        return true
+      }
+
       this.$bus.$emit('notification-progress-start', [i18n.t('Processing Card Info'), '...'].join(''))
 
       // Create payment method with Stripe
@@ -126,6 +164,10 @@ export default {
         return true
       }
     },
+    onPaymentRequestToken (token) {
+      this.paymentRequestResult = token
+      this.token = this.formatTokenPayload({paymentMethod: token})
+    },
     placeOrderWithPayload (payload) {
       this.$bus.$emit('checkout-do-placeOrder', payload)
     },
@@ -135,6 +177,7 @@ export default {
      * @param {any} token Token data from Stripe
      */
     formatTokenPayload (token) {
+      console.log(token)
       let platform = (typeof config.stripe.backend_platform !== 'undefined') ? config.stripe.backend_platform : 'default';
 
       switch (platform) {
@@ -182,6 +225,15 @@ export default {
 
     .StripeElement--webkit-autofill {
       background-color: #fefde5 !important;
+    }
+
+    .payment-icon {
+      width: 60px;
+      height: 40px;
+    }
+
+    .mr10 {
+      margin-right: 10px;
     }
   }
   #vsf-stripe-card-errors {
