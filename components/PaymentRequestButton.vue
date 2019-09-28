@@ -181,7 +181,7 @@ export default {
       if (this.requestShipping) {
         this.stripe.paymentRequest.on('shippingaddresschange', this.onShippingAddressChange)
       }
-      this.stripe.paymentRequest.on('token', this.onTokenReceive)
+      this.stripe.paymentRequest.on('paymentmethod', this.onTokenReceive)
       this.stripe.button.on('click', this.updateDetails)
     },
     async onShippingAddressChange (event) {
@@ -204,9 +204,12 @@ export default {
     },
     onTokenReceive (event) {
       if (this.requestShipping) {
-        this.updateShipppingDetails(event.shippingAddress, event.shippingOption)
+        this.updateShippingDetails(event.shippingAddress, event.shippingOption)
       }
-      this.$bus.$emit('stripePR-token-receive', event.token)
+      // Use this if you need to map more parameters from the response
+      debugger;
+      this.$bus.$emit('stripePR-event-receive', event)
+      this.$bus.$emit('stripePR-token-receive', event.paymentMethod)
       event.complete('success')
     },
     beforeDestroy () {
@@ -216,7 +219,7 @@ export default {
       if (this.requestShipping) {
         this.stripe.paymentRequest.off('shippingaddresschange', this.onShippingAddressChange)
       }
-      this.stripe.paymentRequest.off('token', this.onTokenReceive)
+      this.stripe.paymentRequest.off('paymentmethod', this.onTokenReceive)
       this.stripe.button.off('click', this.updateDetails)
     },
     updateDetails () {
@@ -231,7 +234,7 @@ export default {
 
       this.stripe.paymentRequest.update(options)
     },
-    updateShipppingDetails (shippingAddress, shippingOption) {
+    updateShippingDetails (shippingAddress, shippingOption) {
       this.$bus.$emit('stripePR-shipping-select', {shippingAddress, shippingOption})
       let name = shippingAddress.recipient.split(' ', 2)
       let address = {
