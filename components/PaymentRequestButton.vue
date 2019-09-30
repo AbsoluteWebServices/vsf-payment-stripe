@@ -111,7 +111,7 @@ export default {
 
       return {
         label: i18n.t('Total'),
-        amount: amount * 100,
+        amount: Math.ceil(amount * 100),
         pending
       }
     },
@@ -121,7 +121,7 @@ export default {
       }).map(total => {
         return {
           label: total.title,
-          amount: total.value * 100,
+          amount: Math.ceil(total.value * 100),
           pending
         }
       })
@@ -133,7 +133,7 @@ export default {
         shippingOptions.push({
           id: method.method_code,
           label: method.method_title,
-          amount: method.price_incl_tax * 100
+          amount: Math.ceil(method.price_incl_tax * 100)
         })
       })
 
