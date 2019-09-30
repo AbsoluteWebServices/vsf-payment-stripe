@@ -38,10 +38,30 @@ export default {
       required: false,
       default: '120px'
     },
+    requestPersonalDetails: {
+      type: Boolean,
+      required: false,
+      default: true
+    },
+    savePersonalDetails: {
+      type: Boolean,
+      required: false,
+      default: true
+    },
     requestShipping: {
       type: Boolean,
       required: false,
-      default: false
+      default: true
+    },
+    saveShippingDetails: {
+      type: Boolean,
+      required: false,
+      default: true
+    },
+    savePaymentDetails: {
+      type: Boolean,
+      required: false,
+      default: true
     }
   },
   data () {
@@ -67,11 +87,14 @@ export default {
     availableShippingMethods () {
       return this.shippingMethods.filter(method => method.available)
     },
-    checkoutPaymentDetails () {
-      return this.$store.state.checkout.paymentDetails
-    },
     checkoutShippingDetails () {
       return this.$store.state.checkout.shippingDetails
+    },
+    checkoutPersonalDetails () {
+      return this.$store.state.checkout.personalDetails
+    },
+    checkoutPaymentDetails () {
+      return this.$store.state.checkout.paymentDetails
     }
   },
   mounted () {
@@ -135,9 +158,9 @@ export default {
         currency: 'usd',
         total: this.getTotals(true),
         displayItems: this.getDisplayItems(true),
-        requestPayerName: true,
-        requestPayerEmail: true,
-        requestPayerPhone: true,
+        requestPayerName: this.requestPersonalDetails,
+        requestPayerEmail: this.requestPersonalDetails,
+        requestPayerPhone: this.requestPersonalDetails,
         requestShipping: this.requestShipping
       }
 
@@ -203,13 +226,19 @@ export default {
       }
     },
     onTokenReceive (event) {
-      if (this.requestShipping) {
+      if (this.requestPersonalDetails && this.savePersonalDetails) {
+        this.updatePersonalDetails({
+          email: event.payerEmail,
+          name: event.payerName
+        })
+      }
+      if (this.requestShipping && this.saveShippingDetails) {
         this.updateShippingDetails(event.shippingAddress, event.shippingOption)
       }
-      // Use this if you need to map more parameters from the response
-      debugger;
-      this.$bus.$emit('stripePR-event-receive', event)
-      this.$bus.$emit('stripePR-token-receive', event.paymentMethod)
+      if (this.savePaymentDetails) {
+        this.updatePaymentDetails(event.paymentMethod.billing_details)
+      }
+      this.$bus.$emit('stripePR-token-receive', event)
       event.complete('success')
     },
     beforeDestroy () {
@@ -234,8 +263,20 @@ export default {
 
       this.stripe.paymentRequest.update(options)
     },
+    updatePersonalDetails (personalDetails) {
+      this.$bus.$emit('stripePR-personalDetails-update', personalDetails)
+      let name = personalDetails.name.split(' ', 2)
+      let details = {
+        firstName: name[0],
+        lastName: name.length > 1 ? name[1] : '',
+        emailAddress: personalDetails.email
+      }
+
+      this.$store.dispatch('checkout/savePersonalDetails', details)
+      this.$bus.$emit('checkout-after-personalDetails', this.checkoutPersonalDetails, {})
+    },
     updateShippingDetails (shippingAddress, shippingOption) {
-      this.$bus.$emit('stripePR-shipping-select', {shippingAddress, shippingOption})
+      this.$bus.$emit('stripePR-shippingDetails-update', { shippingAddress, shippingOption})
       let name = shippingAddress.recipient.split(' ', 2)
       let address = {
         firstName: name[0],
@@ -255,6 +296,30 @@ export default {
         shippingCarrier: shippingOption.id
       }
       this.$store.dispatch('checkout/saveShippingDetails', shipping)
+      this.$bus.$emit('checkout-after-shippingDetails', this.checkoutShippingDetails, {})
+    },
+    updatePaymentDetails (paymentDetails) {
+      this.$bus.$emit('stripePR-paymentDetails-update', paymentDetails)
+      let name = paymentDetails.name.split(' ', 2)
+      let address = {
+        firstName: name[0],
+        lastName: name.length > 1 ? name[1] : '',
+        country: paymentDetails.address.country,
+        state: paymentDetails.address.state,
+        city: paymentDetails.address.city,
+        streetAddress: paymentDetails.address.line1,
+        apartmentNumber: paymentDetails.address.line2,
+        zipCode: paymentDetails.address.postal_code,
+        phoneNumber: paymentDetails.phone
+      }
+
+      let payment = {
+        ...address,
+        paymentMethod: this.checkoutPaymentDetails.paymentMethod,
+        paymentMethodAdditional: this.checkoutPaymentDetails.paymentMethodAdditional
+      }
+      this.$store.dispatch('checkout/savePaymentDetails', payment)
+      this.$bus.$emit('checkout-after-paymentDetails', this.checkoutPaymentDetails, {})
     }
   }
 }

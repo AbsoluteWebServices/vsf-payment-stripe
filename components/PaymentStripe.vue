@@ -11,8 +11,8 @@
         <div class="form-row">
           <div v-if="paymentRequestResult" class="flex items-center">
             <svg class="payment-icon mr10"><use :xlink:href="paySystemIcon" /></svg>
-            <span class="mr10">{{ paymentRequestResult.card.brand }}</span>
-            <span>**** {{ paymentRequestResult.card.last4 }}</span>
+            <span class="mr10">{{ paymentRequestResult.paymentMethod.card.brand }}</span>
+            <span>**** {{ paymentRequestResult.paymentMethod.card.last4 }}</span>
           </div>
 
           <div v-show="!paymentRequestResult" id="vsf-stripe-card-element">
@@ -57,7 +57,7 @@ export default {
         return ''
       }
 
-      switch (this.paymentRequestResult.card.brand.toLowerCase()) {
+      switch (this.paymentRequestResult.paymentMethod.card.brand.toLowerCase()) {
         case 'visa':
           return '#pay_system_visa'
 
@@ -166,7 +166,7 @@ export default {
     },
     onPaymentRequestToken (token) {
       this.paymentRequestResult = token
-      this.token = this.formatTokenPayload({paymentMethod: token})
+      this.token = this.formatTokenPayload(token)
     },
     placeOrderWithPayload (payload) {
       this.$bus.$emit('checkout-do-placeOrder', payload)
@@ -177,7 +177,6 @@ export default {
      * @param {any} token Token data from Stripe
      */
     formatTokenPayload (token) {
-      console.log(token)
       let platform = (typeof config.stripe.backend_platform !== 'undefined') ? config.stripe.backend_platform : 'default';
 
       switch (platform) {
