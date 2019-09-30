@@ -53,11 +53,6 @@ export default {
       required: false,
       default: true
     },
-    saveShippingDetails: {
-      type: Boolean,
-      required: false,
-      default: true
-    },
     savePaymentDetails: {
       type: Boolean,
       required: false,
@@ -208,21 +203,21 @@ export default {
       this.stripe.button.on('click', this.updateDetails)
     },
     async onShippingAddressChange (event) {
-      if (event.shippingAddress.country !== 'US') {
-        event.updateWith({status: 'invalid_shipping_address'})
-      } else {
-        // Perform server-side request to fetch shipping options
-        // const response = await fetch('/calculateShipping', {
-        //   data: JSON.stringify({
-        //     shippingAddress: event.shippingAddress
-        //   })
-        // })
-        // const result = await response.json()
+      const lastShipping = this.checkoutShippingDetails
 
+      this.updateShippingDetails(event.shippingAddress, null, false)
+      await this.$store.dispatch('cart/syncTotals', { forceServerSync: true })
+
+      if (this.getShippingOptions().length > 0) {
         event.updateWith({
           status: 'success',
-          shippingOptions: this.getShippingOptions() // result.supportedShippingOptions
+          total: this.getTotals(),
+          displayItems: this.getDisplayItems(),
+          shippingOptions: this.getShippingOptions()
         })
+      } else {
+        this.$store.dispatch('checkout/saveShippingDetails', lastShipping)
+        event.updateWith({status: 'invalid_shipping_address'})
       }
     },
     onTokenReceive (event) {
@@ -232,7 +227,7 @@ export default {
           name: event.payerName
         })
       }
-      if (this.requestShipping && this.saveShippingDetails) {
+      if (this.requestShipping) {
         this.updateShippingDetails(event.shippingAddress, event.shippingOption)
       }
       if (this.savePaymentDetails) {
@@ -263,7 +258,7 @@ export default {
 
       this.stripe.paymentRequest.update(options)
     },
-    updatePersonalDetails (personalDetails) {
+    updatePersonalDetails (personalDetails, emitEvent = true) {
       this.$bus.$emit('stripePR-personalDetails-update', personalDetails)
       let name = personalDetails.name.split(' ', 2)
       let details = {
@@ -273,9 +268,11 @@ export default {
       }
 
       this.$store.dispatch('checkout/savePersonalDetails', details)
-      this.$bus.$emit('checkout-after-personalDetails', this.checkoutPersonalDetails, {})
+      if (emitEvent) {
+        this.$bus.$emit('checkout-after-personalDetails', this.checkoutPersonalDetails, {})
+      }
     },
-    updateShippingDetails (shippingAddress, shippingOption) {
+    updateShippingDetails (shippingAddress, shippingOption = null, emitEvent = true) {
       this.$bus.$emit('stripePR-shippingDetails-update', { shippingAddress, shippingOption})
       let name = shippingAddress.recipient.split(' ', 2)
       let address = {
@@ -290,15 +287,28 @@ export default {
         phoneNumber: shippingAddress.phone
       }
 
-      const shipping = {
-        ...address,
-        shippingMethod: shippingOption.id,
-        shippingCarrier: shippingOption.id
+      let shipping
+
+      if (shippingOption) {
+        shipping = {
+          ...address,
+          shippingMethod: shippingOption.id,
+          shippingCarrier: shippingOption.id
+        }
+      } else {
+        shipping = {
+          ...address,
+          shippingMethod: this.checkoutShippingDetails.shippingMethod,
+          shippingCarrier: this.checkoutShippingDetails.shippingCarrier
+        }
       }
+      
       this.$store.dispatch('checkout/saveShippingDetails', shipping)
-      this.$bus.$emit('checkout-after-shippingDetails', this.checkoutShippingDetails, {})
+      if (emitEvent) {
+        this.$bus.$emit('checkout-after-shippingDetails', this.checkoutShippingDetails, {})
+      }
     },
-    updatePaymentDetails (paymentDetails) {
+    updatePaymentDetails (paymentDetails, emitEvent = true) {
       this.$bus.$emit('stripePR-paymentDetails-update', paymentDetails)
       let name = paymentDetails.name.split(' ', 2)
       let address = {
@@ -319,7 +329,9 @@ export default {
         paymentMethodAdditional: this.checkoutPaymentDetails.paymentMethodAdditional
       }
       this.$store.dispatch('checkout/savePaymentDetails', payment)
-      this.$bus.$emit('checkout-after-paymentDetails', this.checkoutPaymentDetails, {})
+      if (emitEvent) {
+        this.$bus.$emit('checkout-after-paymentDetails', this.checkoutPaymentDetails, {})
+      }
     }
   }
 }
