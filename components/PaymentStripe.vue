@@ -80,11 +80,13 @@ export default {
     this.$bus.$on('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$on('checkout-payment-method-changed', this.checkPaymentMethod)
     this.$bus.$on('stripePR-token-receive', this.onPaymentRequestToken)
+    this.$bus.$on('order-after-placed', this.refreshInstance) // Reset stripe token & instance
   },
   beforeDestroy () {
     this.$bus.$off('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$off('checkout-payment-method-changed', this.checkPaymentMethod)
     this.$bus.$off('stripePR-token-receive', this.onPaymentRequestToken)
+    this.$bus.$off('order-after-placed', this.refreshInstance)
   },
   mounted () {
     if (window.Stripe) {
@@ -94,6 +96,10 @@ export default {
     }
   },
   methods: {
+    refreshInstance () {
+      this.configureStripe()
+      this.token = null
+    },
     checkPaymentMethod (paymentMethodCode) {
       this.correctPaymentMethod = paymentMethodCode === METHOD_CODE
     },
