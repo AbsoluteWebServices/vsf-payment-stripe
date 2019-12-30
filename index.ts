@@ -3,11 +3,13 @@
 import { afterRegistration } from './hooks/afterRegistration'
 import { VueStorefrontModule, VueStorefrontModuleConfig } from '@vue-storefront/core/lib/module'
 import config from 'config'
+import { initCacheStorage } from '@vue-storefront/core/helpers/initCacheStorage'
 
 // This key will be used for creating extension keys in vuex and other key-based plugins.
 // In case of conflicting keys across modules they'll be merged in favor of the least recently registered one
 export const KEY = 'stripe'
 export const METHOD_CODE = config.stripe.backend_method_code || KEY
+export const cacheStorage = initCacheStorage(KEY)
 
 // Put everything that should extend the base app here so it can be later registered as VS module
 const moduleConfig: VueStorefrontModuleConfig = {

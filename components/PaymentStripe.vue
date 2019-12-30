@@ -35,6 +35,7 @@
 import config from 'config'
 import i18n from '@vue-storefront/i18n'
 import { METHOD_CODE } from '../index'
+import { cacheStorage } from '../'
 
 export default {
   name: 'PaymentStripe',
@@ -80,13 +81,15 @@ export default {
     this.$bus.$on('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$on('checkout-payment-method-changed', this.checkPaymentMethod)
     this.$bus.$on('stripePR-token-receive', this.onPaymentRequestToken)
-    this.$bus.$on('order-after-placed', this.refreshInstance) // Reset stripe token & instance
+    this.$bus.$on('order-after-placed', this.setOrderCompleted) // Reset stripe token & instance
+    this.$bus.$on('stripe-refresh-instance', this.refreshInstance) // Reset stripe token & instance
   },
   beforeDestroy () {
     this.$bus.$off('checkout-before-placeOrder', this.onBeforePlaceOrder)
     this.$bus.$off('checkout-payment-method-changed', this.checkPaymentMethod)
     this.$bus.$off('stripePR-token-receive', this.onPaymentRequestToken)
-    this.$bus.$off('order-after-placed', this.refreshInstance)
+    this.$bus.$off('order-after-placed', this.setOrderCompleted)
+    this.$bus.$off('stripe-refresh-instance', this.refreshInstance)
   },
   mounted () {
     if (window.Stripe) {
@@ -96,7 +99,12 @@ export default {
     }
   },
   methods: {
+    setOrderCompleted () {
+      cacheStorage.setItem('orderHasBeenCompleted', true)
+    },
     refreshInstance () {
+      console.log('window.Stripe', 'refreshInstance, remove item')
+      cacheStorage.removeItem('orderHasBeenCompleted')
       this.configureStripe()
       this.token = null
     },
