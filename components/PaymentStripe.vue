@@ -175,7 +175,7 @@ export default {
       this.token = this.formatTokenPayload({paymentMethod: token})
     },
     placeOrderWithPayload (payload) {
-      this.$bus.$emit('checkout-do-placeOrder', payload)
+      this.$bus.$emit('checkout-do-placeOrder', {paymentMethod: payload})
     },
     /**
      * Format the returned token data
