@@ -103,10 +103,9 @@ export default {
       cacheStorage.setItem('orderHasBeenCompleted', true)
     },
     refreshInstance () {
-      console.log('window.Stripe', 'refreshInstance, remove item')
       cacheStorage.removeItem('orderHasBeenCompleted')
       this.configureStripe()
-      this.token = null
+      this.token = nullwindow.Stripe
     },
     checkPaymentMethod (paymentMethodCode) {
       this.correctPaymentMethod = paymentMethodCode === METHOD_CODE
