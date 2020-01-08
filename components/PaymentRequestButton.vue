@@ -371,17 +371,17 @@ export default {
 
       return true
     },
-    getStateCode (state) {
-      if (state.length < 2) {
+    getStateCode (stateStr) {
+      if (stateStr.length < 2) {
         return false
       }
 
-      if (state.length === 2) {
-        return state
+      if (stateStr.length === 2) {
+        return stateStr
       }
 
       const stateCode = this.usaStates.find((el) => {
-        return el.name === state.trim()
+        return el.name === stateStr.trim()
       })
 
       return stateCode.code || false
