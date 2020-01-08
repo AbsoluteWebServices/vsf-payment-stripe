@@ -255,6 +255,7 @@ export default {
           return false
         }
       }
+
       this.$bus.$emit('stripePR-token-receive', event)
       event.complete('success')
     },
@@ -339,6 +340,7 @@ export default {
 
       this.$store.dispatch('checkout/saveShippingDetails', shipping)
       if (emitEvent) {
+        this.$bus.$emit('set-shipping-address-for-billing', false)
         this.$bus.$emit('checkout-after-shippingDetails', this.checkoutShippingDetails, {})
       }
 
@@ -397,7 +399,7 @@ export default {
         return el.name === stateStr.trim()
       })
 
-      return (typeof stateCode.code !== 'undefined') ? stateCode.code : false
+      return (stateCode && typeof stateCode.code !== 'undefined') ? stateCode.code : false
     }
   }
 }
