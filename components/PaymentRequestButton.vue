@@ -208,6 +208,19 @@ export default {
     async onShippingAddressChange (event) {
       const lastShipping = this.checkoutShippingDetails
 
+      const stateCode = this.getStateCode(event.shippingAddress.region)
+
+      if (!stateCode) {
+        this.$store.dispatch('notification/spawnNotification', {
+          type: 'error',
+          message: i18n.t('Please fill out the state for your shipping address'),
+          action1: { label: i18n.t('OK') }
+        })
+
+        event.updateWith({status: 'invalid_shipping_address'})
+        return false
+      }
+
       this.updateShippingDetails(event.shippingAddress, null, false)
       await this.$store.dispatch('cart/syncTotals', { forceServerSync: true })
 
@@ -384,7 +397,7 @@ export default {
         return el.name === stateStr.trim()
       })
 
-      return stateCode.code || false
+      return (stateCode.code) ? stateCode.code : false
     }
   }
 }
