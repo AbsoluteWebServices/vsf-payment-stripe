@@ -396,7 +396,7 @@ export default {
       }
 
       const stateCode = this.usaStates.find((el) => {
-        return el.name === stateStr.trim()
+        return el.name.toLowerCase() === stateStr.trim().toLowerCase()
       })
 
       return (stateCode && typeof stateCode.code !== 'undefined') ? stateCode.code : false
