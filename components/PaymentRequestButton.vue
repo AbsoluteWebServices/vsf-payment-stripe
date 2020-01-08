@@ -7,7 +7,8 @@
 <script>
 import config from 'config'
 import i18n from '@vue-storefront/i18n'
-import { METHOD_CODE } from '../index'
+
+const USAStates = require('../resources/usa-states.json')
 
 export default {
   name: 'StripePaymentRequestButton',
@@ -69,7 +70,8 @@ export default {
         paymentRequest: null
       },
       correctPaymentMethod: true,
-      token: null
+      token: null,
+      usaStates: USAStates
     }
   },
   computed: {
@@ -189,6 +191,7 @@ export default {
 
       // Check the availability of the Payment Request API first.
       const result = await this.stripe.paymentRequest.canMakePayment()
+
       if (result) {
         this.stripe.button.mount(`#${this.id}`)
       } else {
@@ -228,10 +231,16 @@ export default {
         })
       }
       if (this.requestShipping) {
-        this.updateShippingDetails(event.shippingAddress, event.shippingOption)
+        const updatedShippingDetails = this.updateShippingDetails(event.shippingAddress, event.shippingOption)
+        if (!updatedShippingDetails) {
+          return false
+        }
       }
       if (this.savePaymentDetails) {
-        this.updatePaymentDetails(event.paymentMethod.billing_details)
+        const updatedPaymentDetails = this.updatePaymentDetails(event.paymentMethod.billing_details)
+        if (!updatedPaymentDetails) {
+          return false
+        }
       }
       this.$bus.$emit('stripePR-token-receive', event)
       event.complete('success')
@@ -249,7 +258,7 @@ export default {
     updateDetails () {
       let options = {
         total: this.getTotals(),
-        displayItems: this.getDisplayItems(),
+        displayItems: this.getDisplayItems()
       }
 
       if (this.requestShipping) {
@@ -273,13 +282,25 @@ export default {
       }
     },
     updateShippingDetails (shippingAddress, shippingOption = null, emitEvent = true) {
+      const stateCode = this.getStateCode(shippingAddress.region)
+
+      if (!stateCode) {
+        this.$store.dispatch('notification/spawnNotification', {
+          type: 'error',
+          message: i18n.t('Please fill out the state for your shipping address'),
+          action1: { label: i18n.t('OK') }
+        })
+
+        return false
+      }
+
       this.$bus.$emit('stripePR-shippingDetails-update', { shippingAddress, shippingOption})
       let name = shippingAddress.recipient.split(' ', 2)
       let address = {
         firstName: name[0],
         lastName: name.length > 1 ? name[1] : '',
         country: shippingAddress.country,
-        state: shippingAddress.region,
+        state: stateCode,
         city: shippingAddress.city,
         streetAddress: shippingAddress.addressLine[0],
         apartmentNumber: shippingAddress.addressLine.length > 1 ? shippingAddress.addressLine[1] : '',
@@ -302,13 +323,27 @@ export default {
           shippingCarrier: this.checkoutShippingDetails.shippingCarrier
         }
       }
-      
+
       this.$store.dispatch('checkout/saveShippingDetails', shipping)
       if (emitEvent) {
         this.$bus.$emit('checkout-after-shippingDetails', this.checkoutShippingDetails, {})
       }
+
+      return true
     },
     updatePaymentDetails (paymentDetails, emitEvent = true) {
+      const stateCode = this.getStateCode(paymentDetails.address.state)
+
+      if (!stateCode) {
+        this.$store.dispatch('notification/spawnNotification', {
+          type: 'error',
+          message: i18n.t('Please fill out the state for your billing address'),
+          action1: { label: i18n.t('OK') }
+        })
+
+        return false
+      }
+
       this.$bus.$emit('stripePR-paymentDetails-update', paymentDetails)
       let name = paymentDetails.name.split(' ', 2)
       let address = {
@@ -328,10 +363,28 @@ export default {
         paymentMethod: this.checkoutPaymentDetails.paymentMethod,
         paymentMethodAdditional: this.checkoutPaymentDetails.paymentMethodAdditional
       }
+
       this.$store.dispatch('checkout/savePaymentDetails', payment)
       if (emitEvent) {
         this.$bus.$emit('checkout-after-paymentDetails', this.checkoutPaymentDetails, {})
       }
+
+      return true
+    },
+    getStateCode (state) {
+      if (state.length < 2) {
+        return false
+      }
+
+      if (state.length === 2) {
+        return state
+      }
+
+      const stateCode = this.usaStates.find((el) => {
+        return el.name === state.trim()
+      })
+
+      return stateCode.code || false
     }
   }
 }
