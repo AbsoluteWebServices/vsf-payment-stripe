@@ -397,7 +397,7 @@ export default {
         return el.name === stateStr.trim()
       })
 
-      return (stateCode.code) ? stateCode.code : false
+      return (typeof stateCode.code !== 'undefined') ? stateCode.code : false
     }
   }
 }
