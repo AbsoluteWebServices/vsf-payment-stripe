@@ -105,7 +105,7 @@ export default {
     refreshInstance () {
       cacheStorage.removeItem('orderHasBeenCompleted')
       this.configureStripe()
-      this.token = nullwindow.Stripe
+      this.token = null
     },
     checkPaymentMethod (paymentMethodCode) {
       this.correctPaymentMethod = paymentMethodCode === METHOD_CODE
